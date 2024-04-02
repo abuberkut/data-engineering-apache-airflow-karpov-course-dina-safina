@@ -81,7 +81,7 @@
     4. Конец 2020 - Airflow 2.0
 </details>
 <details>
-<summary>2. Основные поняти</summary>
+<summary>2. Основные понятия</summary>
   
     1. DAG (Directed Acyclic Graph) - однонаправленный ацикличный (без циклов) граф
         1. Каждая вершина - одна задача (Task)
