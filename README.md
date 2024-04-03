@@ -194,5 +194,11 @@
         )      
         dummy >> [echo_ds, hello_world]
 
+
+Документацию DAG-a можно добавить как: 
+
+dag.doc_md = __doc__
+dag_name.doc_md
+
 ```
 </details>
