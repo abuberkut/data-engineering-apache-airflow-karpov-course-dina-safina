@@ -296,3 +296,51 @@ dag_name.doc_md
     8. none_skipped
     9. dummy (в любом случае должен сработать)
 </details>
+
+3. Хуки, операторы, сенсоры
+    1. Хуки - интерфейс для соединения, в нём скрывается low-level код для работы с источником
+        1. CONNECTIONS (нужны для системного управления параметрами подключения к различным системам). У каждого connection-a есть свой уникальный ключ - conn_id, их можно использовать напрямую или через хуки.  Пример через хуки:  from airflow.hooks import BaseHook import logging logging.info(BaseHook.get_connection('conn_id').password)
+        2. Hooks:
+            1. S3Hook
+            2. DockerHook
+            3. HDFSHook
+            4. HttpHook
+            5. MsSqlHook
+            6. MySqlHook
+            7. OracleHook
+            8. PigCliHook
+            9. PostgresHook
+            10. SqliteHook
+    2. Операторы - параметризуемые шаблоны для Task-ов
+        1. BashOperator
+        2. PythonOperator
+        3. EmailOperator
+        4. PostgresOperator
+        5. MySqlOperator
+        6. MsSqlOperator
+        7. HiveOperator
+        8. SImpleHttpOperator
+        9. SlackAPIOperator
+        10. PrestoToMySqlOperator
+        11. TriggerDagRunOperator
+    3. Сенсоры - ожидают момента наступления какого-либо события
+        1. Параметры
+            1. timeout - время в секундах, прежде чем сенсор перейдёт в состояние FAILED
+            2. soft_fail (bool) - при FAILED-е сенсор переходит в состояние SKIPPED
+            3. poke_interval - время в секундах между попытками, в которые сенсор будет выяснять отработало ли событие 
+            4. mode (либо poke, либо reschedule) - poke держит worker активным, а reschedule  даёт возможность снижать нагрузку, давая возможность не держать активно worker и освобождать
+        2. Sensors
+            1. ExternalTaskSensor - логически связывает меджу собой DAG-и 	is_payments_done = ExternalTaskSensor( 		task_id="is_payments_done", 		external_dag_id='load_payments', 		external_task_id='end', 		timeout=600, 		allowed_states=['success'], 		failed_states=['failed', 'skepped'], 		mode="reschedule" 	)
+            2. SqlSensor - дожидается когда в результатах запроса возвращается хотя бы 1 строка
+            3. TimeDeltaSensor 
+            4. HdfsSensor
+            5. PythonSensor
+            6. DayOfWeekSensor
+        3. Branching (Ветвление)[https://bigdataschool.ru/blog/branching-in-dag-airflow-with-operators.html]
+            1. BranchPythonOperator Функция, поверх которой работает BranchPythonOperator должна вернуть названия одного/нескольких Task-ов, которые начнут работать после завершения этого Task-а, все которые не будут упомянуты в выводе этой функции перейдут в состояние SKEPPED и пропустятся. Если функция ничего не вернёт (None), то у нас пропустятся все  Task-и, которые зависят от этого Task-a  Пример:  def select_random_func():    return random.choice(['task_1', 'task_2', 'task_3'])  start = DummyOperator(task_id='start')  select_random = BranchPythonOperator(    task_id='select_random',    python_callable=select_random_func )  task_1 = DummyOperator(task_id='task_1') task_2 = DummyOperator(task_id='task_2') task_3 = DummyOperator(task_id='task_3')  start >> select_random >> [task_1, task_2, task3] 
+            2. ShortCircuitOperator - возвращает bool  def is_weekend_func(execution_dt):    exec_day = datetime.strptime(execution_dt, '%Y-%m-%d').weekday()    return exec_day in [5, 6]  weekend_only = ShortCircuitOperator(    task_id='weekend_only',    python_callable=is_weekend_func,    op_kwargs={'execution_dt': '{{ ds }}'} )  some_task = DummyOperator(task_id='some_task')  start >> weekend_only >> some_task 
+            3. BranchDateTimeOperator
+        4. Шаблоны Jinja
+            1. Шаблонизация (templates) {{ execution_date }} {{ ds }} {{ conf }}
+            2. Macros  macros.datetime macros.timedelta macros.time macros.uuid macros.random   Примеры: '{{ macros.datetime.now() }}' '{{ execution_date - macros.timedelta(days=5) }}'   Можно создавать пользовательские макросы
+        5. Аргументы для PythonOperator - op_args - op_kwargs - templates_dict - provide_context
