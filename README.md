@@ -201,3 +201,98 @@ dag_name.doc_md
 
 ```
 </details>
+
+
+# Сложные пайплайны
+
+<details>
+<summary>1. Создание DAG-a</summary>
+
+    1. Способы создания  DAG-a:
+        1. Создание переменной класса DAG (dag_name=DAG(…)). Каждый созданный Task надо привязывать к созданному DAG-у (внутри Task-a в параметр dag присваивать переменную DAG: dag=dag_name)  	
+	dag_name = DAG(   
+		"owner_name",    
+		schedule_interval='@daily',    
+  		default_args=DEFAULT_ARGS,    
+    		max_active_runs=1,    
+      		tags=['tag1', 'tag2'] 
+	)
+	
+	wait_until_6am = TimeFeltaSensor(    
+ 		task_id='wait_until6am',    
+   		delta=timedelta(seconds=6*60*60), # 6 часов    
+     		dag=dag_name 
+     	) 
+
+      
+        2. Создание переменной класса DAG через контекстный менеджер (with DAG(…)). DAG автоматически назначается Task-ам внутри контекста (не надо привязывать каждый Task отдельно как в пункте 1.1.1)  
+	with DAG(    
+ 		dag_id='some_id',    
+   		schedule_interval='@daily',    
+     		default_args=DEFAULT_ARGS,    
+       		max_active_runs=1,    
+	 	tags=['tag1', 'tag2']    
+   	) as dag_name:         
+    		wait_until_6am = TimeFeltaSensor(       
+      			task_id='wait_until6am',       
+	 		delta=timedelta(seconds=6*60*60), # 6 часов    
+    		) 
+      
+        3. Создание DAG-a с помощью декоратора, набрасываем функцию со списком Task-ов внутри, оборачиваем его в декоратор и таким образом получаем переменную класса DAG,  переменную присваиваем глобальной области видимости  (необходимо знать декораторы в Python)  
+	
+ 	@dag(    
+  		start_date=days_ago(2),    
+    		dag_id='some_id',    
+      		schedule_interval='@daily',   
+		default_args=DEFAULT_ARGS,    
+  		max_active_runs=1,    
+    		tags=['tag1', 'tag2']    
+    	)  
+     	
+      	def generate_dag():     
+       		wait_until_6am = TimeFeltaSensor(        
+	 		task_id='wait_until6am',        
+    			delta=timedelta(seconds=6*60*60), # 6 часов     
+       		)  
+	 
+  	dag = generate_dag()  
+   
+    2. default_args = {    
+    	'owner': 'owner_name',    
+     	'queue': 'queue_name', # очередь, в которую становится Task    
+      	'pool': 'user_pool',    
+       	'email': ['name@example.com'],    
+	'email_on_failure': False,    
+ 	'email_on_retry': False,    
+  	'depends_on_past': False, # Task в данной DAG Instance будет запущен только в тот момент, когда этот же Task в предыдущем (за предыдущий период) DAG Instanc-e уже был отработан    
+   	'wait_for_downstream': False, # Task ждёт окончание работы всех Task-ов, зависящих от этого     
+    	'retries': 3,    
+     	'retry_delay': timedelta(minutes=5),    
+      	'priority_weight': 10,    
+       	'start_date': detetime(2024, 1, 1),    
+	'end_date': detetime(2026, 1, 1),    
+ 	'sla': timedelta(hours=2),    
+  	'execution_timeout': timedelta(seconds=300),    
+   	'on_failure_callback': some_function,    
+    	'on_success_callback': some_other_function,    
+     	'on_retry_callback': another_function,    
+      	'sla_miss_callback': yet_another_function,    
+       	'trigger_rule': 'all_success', 
+	}
+
+</details>
+
+<details>
+<summary>2. Trigger rule</summary>
+
+    В каком  состоянии должны быть предыдущие Task-и, чтобы Task который от них зависит сработал, по умолчанию all_success
+    1. all_success
+    2. all_failed
+    3. all_done (все предыдущие Task-и должны перейти в одно из этих состояний: SUCCESS, SKIPPED, FAILED, UPSTREAM_FAILED)
+    4. one_failed (хотя бы один из предыдущих Task-ов перейдёт в состояние FAILED)
+    5. one_success (хотя бы один из предыдущих Task-ов перейдёт в состояние SUCCESS)
+    6. none_failed
+    7. none_failed_or_skepped
+    8. none_skipped
+    9. dummy (в любом случае должен сработать)
+</details>
