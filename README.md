@@ -414,3 +414,197 @@ dag_name.doc_md
    	- provide_context
     
 </details>
+
+# Сложные пайплайны 2
+<details>
+
+<summary>1) XCom (Cross Communication)</summary>
+
+	Способ общения Task-ов между собой, по умолчанию Task-и изолированы друг от друга
+	Иногда надо передать результат работы одного таска в другой, где может применяться xcom
+	Параметры xcom - dag_id, task_id, key
+
+	Методы: 
+	xcom_push - передаёт параметры в другой Task
+	xcom_pull - забирает параметры из другого Task-а
+
+	 xcom передаёт не большие данные
+	в Airflow 2 можете написать свой бэкенд и передавать любой размер
+
+	Примеры: явный и неявный способ передачи  	def explicit_push_func(**kwargs): # явный
+		kwargs['ti'].xcom_push(value='Hello world', key='hi')
+	
+	def implicit_push_func(): # неявный
+		return 'Some string from function'
+
+	explicit_push = PythonOperator( 		task_id='explicit_push',
+		python_callable=explicit_push_func,
+		provide_context=True 	)
+
+	implicit_push = PythonOperator(
+		task_id='implicit_push',
+		python_callable=implicit_push_func
+	)
+
+	------------------------------------------
+
+	Способы чтения 
+
+	def print_both_func(**kwargs): 		logging.info('---------------')
+		logging.info(kwargs['ti'].xcom_pull(task_ids='explicit_push', key='hi')) # через xcom_pull
+		logging.info(kwargs['templates_dict']['implicit']) # через  jinja
+		logging.info('---------------')
+
+	print_both = PythonOperator(
+		task_id='print_both',
+		python_callable=print_both_func,
+		templates_dict={'implicit': '{{ ti.xcom_pull(task_ids="implicit_push") {}}'},
+		provide_context=True
+	)
+</details>
+<details>
+
+<summary>2) Taskflow API (Airflow 2, альтернатива xcom)</summary>
+
+	Каждый таск взаимодействуют друг с другом напрямую - результат работы одного  таска является входными параметрами для второго таска, а результат 2-го таска входные параметры 3-ьего таска
+
+	Пример:
+		
+	@dag(
+		default_args=DEFAULT_ARGS,
+		schedule_interval='@daily',
+		tags=['tag_1']   	) 
+	
+	def some_taskflow():
+		
+		@task
+		def list_of_nums():
+			return [1, 2, 3, 4, 5]
+		
+		@task
+		def sum_nums(nums: list):
+			return sum(nums)
+
+		@task
+		def print_sum(total: int):
+			logging.info(str(total))
+
+		print_sum(sum_nums(list_of_nums()))
+
+	some_taskflow_dag = some_taskflow()
+
+</details>
+
+<details>
+
+<summary>3) SUBDAGS (SubdagOperator)</summary>
+
+
+	def subdag(parent_dag_name, child_dag_name, args):
+		dag_subdag = DAG(
+			dag_id=f'{parent_dag_name}.{child_dag_name}',
+			default_args=args,
+			start_date=days_ago(2),
+			schedule_interval="@daily",
+		)
+
+		for i in range(5):
+			DummyOperator(
+				task_id=f'{child_dag_name}-task-{i+1}',
+				default_args=args,
+				dag=subdag,
+			)
+		
+		return dag_subdag
+
+	----------------------------------------------
+		
+	 Основной DAG: 
+
+	with DAG(
+			DAG_NAME,
+			schedule_interval='@daily',
+			default_args=DEFAULT_ARGS,
+			max_active_runs=1,
+			tags=['tag_1'],
+		) as dag:
+		
+		start = DummyOperator(task_id='start')
+		dummy = DummyOperator(task_id='dummy')	
+		end = DummyOperator(task_id='end')
+
+		section_1 = SubDagOperator(
+			task_id='section-1',
+			subdag=subdag(DAG_NAME, 'section-1', DEFAULT_ARGS),
+		)
+
+		section_2 = SubDagOperator(
+			task_id='section-2',
+			subdag=subdag(DAG_NAME, 'section-2', DEFAULT_ARGS),
+		)
+
+		start >> section_1 >> dummy >> section_2 >> end
+
+
+	- Расписание у дага и сабдага должны совпадать
+	- Название сабдагов: parent.child
+	- Состояние сабдага и таска SubDagOperator независимы
+	- По возможности избегайте сабдаги (сырая концепция, состояние сабдага нестабилен, в Airflow 3 хотят от него избавиться)
+
+</details>
+
+<details>
+
+<summary>4) TaskGroup (вместо SubDag-a)</summary>
+
+	with DAG(
+		'some_taskgroup',
+		schedule_args=DEFAULT_ARGS,
+		max_active_runs=1,
+		tags=['tag_1']
+		) as dag:
+		
+		start = DummyOperator(task_id='start')
+
+		with TaskGroup(group_id='group1') as tg1:
+			for i in range(5)
+				DummyOperator(task_id=f'task-{i+1}')
+		
+		dummy = DummyOperator(task_id='dummy')	
+
+		with TaskGroup(group_id='group2') as tg2:
+			for i in range(5)
+				DummyOperator(task_id=f'task-{i+1}')
+		
+		end = DummyOperator(task_id='end')
+
+		start >> tg1 >> dummy >> tg2 >> end
+
+	Чем много тасков группировать, сначала необходимо подумать "может сделать несколько DAG-ов вместо одного с большим количеством Task-ов в TaskGroup"  5) Динамическое создание DAG-ов (необязательно вручную пилить каждый даг)
+	Требования
+	- Скрипты должны находиться в DAG_FOLDER
+	- dag в globals()
+	
+	Варианты
+	- Статичная генерация нескольких одинаковых дагов (конструктор дага)
+	- Генерация дага из глобальных переменных/соединений 
+	- Генерация дага на основе json/yaml-файла (этот вариант рекомендуется в курсе)
+		Автопилот - скрипт, который из json-а генерирует даги
+
+</details>
+
+<details>
+
+<summary>6) Airflow best practice</summary>
+
+	- Сохраняйте идемпотентность
+	- Не храните пароли в коде (есть connecion-ы)
+	- Не храните файлы локально (Worker-ов несколько и файл на другой машине), вместо этого храните в S3, HDFS,...
+	- Убирайте лишний код вернего уровня
+		- Всю логику переносите в код таска
+	- Не используйте переменные Airflow 
+		- Загружайте переменные из Jinja
+		- Загружайте переменные внутри таска
+		- Используйте переменные окружения
+
+</details>
