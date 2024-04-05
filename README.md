@@ -301,7 +301,13 @@ dag_name.doc_md
 <summary>3. Хуки, операторы, сенсоры</summary>
 
     1. Хуки - интерфейс для соединения, в нём скрывается low-level код для работы с источником
-        1. CONNECTIONS (нужны для системного управления параметрами подключения к различным системам). У каждого connection-a есть свой уникальный ключ - conn_id, их можно использовать напрямую или через хуки.  Пример через хуки:  from airflow.hooks import BaseHook import logging logging.info(BaseHook.get_connection('conn_id').password)
+        1. CONNECTIONS (нужны для системного управления параметрами подключения к различным системам). У каждого connection-a есть свой уникальный ключ - conn_id, их можно использовать напрямую или через хуки.  
+		Пример через хуки:  
+		from airflow.hooks 
+		import BaseHook import logging 
+	
+		logging.info(BaseHook.get_connection('conn_id').password)
+
         2. Hooks:
             1. S3Hook
             2. DockerHook
@@ -349,12 +355,14 @@ dag_name.doc_md
             4. HdfsSensor
             5. PythonSensor
             6. DayOfWeekSensor
-        3. Branching (Ветвление)[https://bigdataschool.ru/blog/branching-in-dag-airflow-with-operators.html]
+        3. Branching [Ветвление](https://bigdataschool.ru/blog/branching-in-dag-airflow-with-operators.html)
             1. BranchPythonOperator 
 	    Функция, поверх которой работает BranchPythonOperator должна вернуть названия одного/нескольких Task-ов, которые начнут работать после завершения этого Task-а, все которые не будут упомянуты в выводе этой функции перейдут в состояние SKEPPED и пропустятся. Если функция ничего не вернёт (None), то у нас пропустятся все  Task-и, которые зависят от этого Task-a  
-     Пример:  
-     def select_random_func():    
-     	return random.choice(['task_1', 'task_2', 'task_3'])  
+     
+	Пример:  
+     	
+      def select_random_func():    
+		return random.choice(['task_1', 'task_2', 'task_3'])  
      
      start = DummyOperator(task_id='start')  
      
