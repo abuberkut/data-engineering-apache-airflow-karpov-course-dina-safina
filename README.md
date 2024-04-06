@@ -428,16 +428,19 @@ dag_name.doc_md
 	xcom_push - передаёт параметры в другой Task
 	xcom_pull - забирает параметры из другого Task-а
 
-	 xcom передаёт не большие данные
+	xcom передаёт не большие данные
 	в Airflow 2 можете написать свой бэкенд и передавать любой размер
 
-	Примеры: явный и неявный способ передачи  	def explicit_push_func(**kwargs): # явный
+	Примеры: явный и неявный способ передачи  	
+	
+ 	def explicit_push_func(**kwargs): # явный
 		kwargs['ti'].xcom_push(value='Hello world', key='hi')
 	
 	def implicit_push_func(): # неявный
 		return 'Some string from function'
 
-	explicit_push = PythonOperator( 		task_id='explicit_push',
+	explicit_push = PythonOperator( 		
+ 		task_id='explicit_push',
 		python_callable=explicit_push_func,
 		provide_context=True 	)
 
@@ -450,7 +453,8 @@ dag_name.doc_md
 
 	Способы чтения 
 
-	def print_both_func(**kwargs): 		logging.info('---------------')
+	def print_both_func(**kwargs): 		
+ 		logging.info('---------------')
 		logging.info(kwargs['ti'].xcom_pull(task_ids='explicit_push', key='hi')) # через xcom_pull
 		logging.info(kwargs['templates_dict']['implicit']) # через  jinja
 		logging.info('---------------')
@@ -588,8 +592,7 @@ dag_name.doc_md
 	Варианты
 	- Статичная генерация нескольких одинаковых дагов (конструктор дага)
 	- Генерация дага из глобальных переменных/соединений 
-	- Генерация дага на основе json/yaml-файла (этот вариант рекомендуется в курсе)
-		Автопилот - скрипт, который из json-а генерирует даги
+	- Генерация дага на основе json/yaml-файла. Автопилот - скрипт, который из json-а генерирует даги (этот вариант рекомендуется в курсе)
 
 </details>
 
