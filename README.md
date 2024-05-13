@@ -621,4 +621,6 @@ dag_name.doc_md
 	<summary>Quickstart</summary>
 
  	https://airflow.apache.org/docs/apache-airflow/stable/start.html
+
+  	https://docs.astronomer.io/learn/airflow-dbt
 </details>
