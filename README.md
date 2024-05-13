@@ -616,3 +616,9 @@ dag_name.doc_md
 		- Используйте переменные окружения
 
 </details>
+
+<details>
+	<summary>Quickstart</summary>
+
+ 	https://airflow.apache.org/docs/apache-airflow/stable/start.html
+</details>
